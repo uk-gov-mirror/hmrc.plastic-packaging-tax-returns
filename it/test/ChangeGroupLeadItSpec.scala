@@ -34,7 +34,7 @@ package test
 
 import com.codahale.metrics.SharedMetricRegistries
 import com.github.tomakehurst.wiremock.client.WireMock._
-import org.mockito.ArgumentMatchersSugar.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{reset, when}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatestplus.play.PlaySpec
@@ -46,6 +46,7 @@ import play.api.inject.bind
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSClient
+import play.api.libs.ws.DefaultBodyWritables.writeableOf_String
 import play.api.test.Helpers.{await, defaultAwaitTimeout}
 import support.WiremockItServer
 import uk.gov.hmrc.auth.core.retrieve.~

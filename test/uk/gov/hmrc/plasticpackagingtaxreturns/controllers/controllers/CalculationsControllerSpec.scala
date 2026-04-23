@@ -17,9 +17,9 @@
 package uk.gov.hmrc.plasticpackagingtaxreturns.controllers.controllers
 
 import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchersSugar.any
-import org.mockito.Mockito.when
-import org.mockito.MockitoSugar.{reset, verify}
+import org.mockito.ArgumentMatchers.any
+import org.scalatestplus.mockito.MockitoSugar.*
+import org.mockito.Mockito.{verify, when, reset}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatestplus.play.PlaySpec
 import play.api.http.Status.UNPROCESSABLE_ENTITY
@@ -78,7 +78,7 @@ class CalculationsControllerSpec extends PlaySpec with BeforeAndAfterEach with A
 
     when(sessionRepository.get(any[String])) thenReturn Future.successful(Some(userAnswers))
     when(availableCreditService.getBalance(any)(any)) thenReturn Future.successful(Some(BigDecimal(0)))
-    when(taxRateTable.lookupRateFor(any)).thenReturn(0.123)
+    when(taxRateTable.lookupRateFor(any)).thenReturn(BigDecimal(0.123))
   }
 
   "calculateSubmit" should {

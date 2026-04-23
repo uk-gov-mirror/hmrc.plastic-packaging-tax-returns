@@ -16,8 +16,9 @@
 
 package uk.gov.hmrc.plasticpackagingtaxreturns.services
 
-import org.mockito.ArgumentMatchersSugar.{any, eqTo}
-import org.mockito.MockitoSugar.{mock, reset, spyLambda, verify, verifyNoMoreInteractions, when}
+import org.mockito.ArgumentMatchers.{any, eq => eqTo}
+import org.scalatestplus.mockito.MockitoSugar.mock
+import org.mockito.Mockito.{verify, when, reset, verifyNoMoreInteractions, spy}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatestplus.play.PlaySpec
 import play.api.mvc.Result
@@ -41,23 +42,23 @@ class UserAnswersServiceSpec extends PlaySpec with BeforeAndAfterEach {
 
   "get with function parameter" should {
     val block: UserAnswers => Future[Result] = _ => Future.successful(Ok("blah"))
-    val spyBlock                             = spyLambda(block)
+    val spyBlock                             = spy(new BlockWrapper) 
 
     "execute the block if userAnswer found" in {
       val ans = UserAnswers("123")
       when(sessionRepository.get(any)).thenReturn(Future.successful(Some(ans)))
 
-      val result = await(service.get("123")(spyBlock))
+      val result = await(service.get("123")(spyBlock.apply))
 
       result mustBe Ok("blah")
-      verify(spyBlock)(ans)
-      verify(sessionRepository).get(eqTo("123"))
+      verify(spyBlock).apply(ans) 
+      verify(sessionRepository).get(eqTo("123")) 
     }
 
     "not execute the block if userAnswer not found" in {
       when(sessionRepository.get(any)).thenReturn(Future.successful(None))
 
-      val result = await(service.get("123")(spyBlock))
+      val result = await(service.get("123")(spyBlock.apply))
 
       result mustBe UnprocessableEntity("No user answers found")
       verifyNoMoreInteractions(spyBlock)
@@ -65,3 +66,8 @@ class UserAnswersServiceSpec extends PlaySpec with BeforeAndAfterEach {
     }
   }
 }
+
+class BlockWrapper {
+  def apply(userAnswers: UserAnswers): Future[Result] = Future.successful(Ok("blah"))
+}
+

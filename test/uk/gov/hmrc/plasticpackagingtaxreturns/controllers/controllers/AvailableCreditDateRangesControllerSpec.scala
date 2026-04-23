@@ -16,16 +16,17 @@
 
 package uk.gov.hmrc.plasticpackagingtaxreturns.controllers.controllers
 
-import org.mockito.ArgumentMatchersSugar._
-import org.mockito.MockitoSugar
-import org.mockito.invocation.InvocationOnMock
+import org.mockito.ArgumentMatchers.*
+import org.scalatestplus.mockito.MockitoSugar
+import org.mockito.ArgumentMatchers.{eq => eqTo}
+import org.mockito.Mockito.{verify, when, reset, spy}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatestplus.play.PlaySpec
 import play.api.http.Status.OK
 import play.api.libs.json.Json
 import play.api.libs.json.Json.{arr, obj}
 import play.api.mvc.Result
-import play.api.mvc.Results.{Ok, UnprocessableEntity}
+import play.api.mvc.Results.{UnprocessableEntity}
 import play.api.test.Helpers._
 import play.api.test.{FakeRequest, Helpers}
 import uk.gov.hmrc.plasticpackagingtaxreturns.connectors.SubscriptionsConnector
@@ -43,6 +44,7 @@ import uk.gov.hmrc.plasticpackagingtaxreturns.services.{AvailableCreditDateRange
 import java.time.LocalDate
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import uk.gov.hmrc.plasticpackagingtaxreturns.controllers.actions.AuthorizedRequest
 
 class AvailableCreditDateRangesControllerSpec extends PlaySpec with MockitoSugar with BeforeAndAfterEach {
 
@@ -56,6 +58,8 @@ class AvailableCreditDateRangesControllerSpec extends PlaySpec with MockitoSugar
 
   private val sessionRepository  = mock[SessionRepository]
   private val userAnswersService = new UserAnswersService(sessionRepository)
+
+  private def anyAuthenticator = any[AuthorizedRequest[Any] => Future[Result]]
 
   val sut = new AvailableCreditDateRangesController(
     service,
@@ -83,7 +87,7 @@ class AvailableCreditDateRangesControllerSpec extends PlaySpec with MockitoSugar
 
     "use authenticator" in {
       Try(await(sut.get("pptRef")(FakeRequest())))
-      verify(authenticator).authorisedAction(any, eqTo("pptRef"))(any)
+      verify(authenticator).authorisedAction(any, eqTo("pptRef"))(anyAuthenticator)
     }
 
     "fetch user answers and subscription" in {

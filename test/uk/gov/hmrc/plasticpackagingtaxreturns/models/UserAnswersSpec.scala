@@ -16,9 +16,11 @@
 
 package uk.gov.hmrc.plasticpackagingtaxreturns.models
 
-import org.mockito.ArgumentMatchersSugar._
-import org.mockito.MockitoSugar
-import org.mockito.scalatest.ResetMocksAfterEachTest
+import org.mockito.ArgumentMatchers._
+import org.scalatestplus.mockito.MockitoSugar
+import org.mockito.Mockito.{verify, when, reset, never}
+import org.mockito.ArgumentMatchers.{eq => eqTo}
+import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.TryValues.convertTryToSuccessOrFailure
 import org.scalatestplus.play.PlaySpec
@@ -33,7 +35,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
 
-class UserAnswersSpec extends PlaySpec with BeforeAndAfterEach with MockitoSugar with ResetMocksAfterEachTest {
+
+class UserAnswersSpec extends PlaySpec with BeforeAndAfterEach with MockitoSugar {
 
   private val emptyUserAnswers  = UserAnswers("empty")
   private val filledUserAnswers = UserAnswers("filled", obj("cheese" -> obj("brie" -> "200g")))
@@ -57,14 +60,20 @@ class UserAnswersSpec extends PlaySpec with BeforeAndAfterEach with MockitoSugar
     super.beforeEach()
 
     when(question.path) thenReturn JsPath \ "cheese" \ "brie"
-    when(question.cleanup(any, any)) thenAnswer {
-      (_: Option[String], userAnswers: UserAnswers) => Try(userAnswers) // pass through
+    when(question.cleanup(any, any)) thenAnswer { (invocation: InvocationOnMock) =>
+      val userAnswers = invocation.getArgument[UserAnswers](1)
+      Try(userAnswers)
     }
 
     when(saveFunction.apply(any, any)) thenReturn Future.successful(true)
     when(newValueFunc.apply(any)) thenReturn "new-value"
 
     when(emptyForm.fill(any)) thenReturn filledForm
+  }
+
+  override protected def afterEach(): Unit = {
+    super.afterEach()
+    reset(question, saveFunction, newValueFunc, fillFormFunc, emptyForm, filledForm)
   }
 
   "it" should {

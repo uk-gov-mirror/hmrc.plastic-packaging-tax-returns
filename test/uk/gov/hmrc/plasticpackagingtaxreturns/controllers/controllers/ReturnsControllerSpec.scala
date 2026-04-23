@@ -17,9 +17,9 @@
 package uk.gov.hmrc.plasticpackagingtaxreturns.controllers.controllers
 
 import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchersSugar.{any, eqTo}
-import org.mockito.Mockito.{never, verify, when}
-import org.mockito.MockitoSugar.reset
+import org.mockito.ArgumentMatchers.{any, eq => eqTo}
+import org.mockito.Mockito.{never, verify, when, reset}
+import org.scalatestplus.mockito.MockitoSugar.*
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.must.Matchers
@@ -183,10 +183,10 @@ class ReturnsControllerSpec
         JsObject(Seq("chargeDetails" -> JsObject(Seq("periodTo" -> JsString(LocalDate.of(2020, 5, 14).toString)))))
 
       mockReturnDisplayConnector(returnDisplayResponse)
-      when(mockTaxRateTable.lookupRateFor(any)).thenReturn(0.133)
+      when(mockTaxRateTable.lookupRateFor(any)).thenReturn(BigDecimal("0.133"))
 
       val result: Future[Result] = sut.get(pptReference, periodKey).apply(FakeRequest())
-      val returnWithTaxRate      = ReturnWithTaxRate(returnDisplayResponse, 0.133)
+      val returnWithTaxRate      = ReturnWithTaxRate(returnDisplayResponse, BigDecimal("0.133"))
       status(result) mustBe OK
       contentAsJson(result) mustBe toJson(returnWithTaxRate)
       verify(mockTaxRateTable).lookupRateFor(LocalDate.of(2020, 5, 14))

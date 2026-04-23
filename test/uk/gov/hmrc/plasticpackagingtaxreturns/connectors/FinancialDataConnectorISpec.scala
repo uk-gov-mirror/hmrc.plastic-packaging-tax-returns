@@ -18,10 +18,10 @@ package uk.gov.hmrc.plasticpackagingtaxreturns.connectors
 
 import com.codahale.metrics.Timer
 import org.apache.pekko.Done
-import org.mockito.ArgumentMatchersSugar.{any, eqTo}
+import org.mockito.ArgumentMatchers.{any, eq => eqTo}
 import org.mockito.Mockito.RETURNS_DEEP_STUBS
-import org.mockito.MockitoSugar.{mock, reset, verify, when}
-import org.mockito.captor.ArgCaptor
+import org.scalatestplus.mockito.MockitoSugar.mock
+import org.mockito.Mockito.{verify, when, reset}
 import org.mockito.{Answers, ArgumentCaptor}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.Inspectors.forAll
@@ -30,7 +30,8 @@ import play.api.http.Status.{INTERNAL_SERVER_ERROR, NOT_FOUND}
 import play.api.libs.concurrent.Futures
 import play.api.libs.json.Json
 import play.api.test.Helpers.{await, defaultAwaitTimeout}
-import uk.gov.hmrc.http.{HeaderCarrier, HttpClient, HttpResponse}
+import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, StringContextOps}
+import uk.gov.hmrc.http.client.{HttpClientV2, RequestBuilder}
 import uk.gov.hmrc.plasticpackagingtaxreturns.audit.returns.GetPaymentStatement
 import uk.gov.hmrc.plasticpackagingtaxreturns.config.AppConfig
 import uk.gov.hmrc.plasticpackagingtaxreturns.connectors.models.des.enterprise.FinancialDataResponse
@@ -58,7 +59,7 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
   val calculateAccruedInterest: Option[Boolean]   = Some(true)
   val customerPaymentInformation: Option[Boolean] = Some(false)
 
-  private val httpClient     = mock[HttpClient]
+  private val httpClient     = mock[HttpClientV2]
   private val appConfig      = mock[AppConfig]
   private val metrics        = mock[Metrics](Answers.RETURNS_DEEP_STUBS)
   private val auditConnector = mock[AuditConnector]
@@ -67,11 +68,18 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
 
   private val eisHttpClient = new EisHttpClient(httpClient, appConfig, edgeOfSystem, metrics, futures)
   private val sut           = new FinancialDataConnector(eisHttpClient, appConfig, auditConnector, edgeOfSystem)
+  private val mockRequestBuilder = mock[RequestBuilder]
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    reset(auditConnector, metrics, httpClient, appConfig, edgeOfSystem)
+    reset(auditConnector, metrics, httpClient, appConfig, edgeOfSystem, mockRequestBuilder)
 
+    
+    when(httpClient.get(any())(any())).thenReturn(mockRequestBuilder)
+    when(mockRequestBuilder.setHeader(any())).thenReturn(mockRequestBuilder)
+    when(mockRequestBuilder.transform(any())).thenReturn(mockRequestBuilder)
+
+    when(appConfig.enterpriseFinancialDataUrl(any)).thenReturn("http://localhost/foo")
     when(metrics.defaultRegistry.timer(any)).thenReturn(timer)
     when(timer.time()).thenReturn(timerContext)
     when(edgeOfSystem.createUuid.toString).thenReturn("123")
@@ -83,7 +91,7 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
     "get financial data" should {
 
       "handle a 200 with financial data" in {
-        when(httpClient.GET[Any](any, any, any)(any, any, any))
+        when(mockRequestBuilder.execute[HttpResponse](any,any))
           .thenReturn(Future.successful(HttpResponse(200, Json.toJson(financialDataResponse).toString())))
 
         val res = await(getFinancialData)
@@ -104,27 +112,28 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
       }
 
       "call the financial api" in {
-        when(appConfig.enterpriseFinancialDataUrl(any)).thenReturn("/foo")
-        when(httpClient.GET[Any](any, any, any)(any, any, any))
+        when(mockRequestBuilder.execute[HttpResponse](any,any))
           .thenReturn(Future.successful(HttpResponse(200, Json.toJson(financialDataResponse).toString())))
 
         await(getFinancialData)
 
-        val captor: ArgumentCaptor[Seq[(String, String)]] = ArgumentCaptor.forClass(classOf[Seq[(String, String)]])
-
-        verify(httpClient).GET(eqTo("/foo"), eqTo(expectedParams), captor.capture())(any, any, any)
+        verify(httpClient).get(eqTo(url"http://localhost/foo"))(any())
+        verify(mockRequestBuilder).transform(any())
+        val captor = ArgumentCaptor.forClass(classOf[(String, String)])
+        verify(mockRequestBuilder).setHeader(captor.capture())
 
         withClue("have a correlation id in the header") {
-          val correlationId = captor.getValue.filter(o => o._1.equals("CorrelationId"))
-          correlationId must not be empty
-          correlationId(0)._2.length must be > 0
-        }
+        val allHeaders = captor.getAllValues.get(0).asInstanceOf[Seq[(String, String)]]
+        val correlationId = allHeaders.filter(_._1 == "CorrelationId")
+        correlationId must not be empty
+        correlationId(0)._2.length must be > 0
+        } 
       }
 
       "return an error" when {
         "is upstream error" in {
-          when(httpClient.GET[Any](any, any, any)(any, any, any))
-            .thenReturn(Future.successful(HttpResponse(500, "{}")))
+          when(mockRequestBuilder.execute[HttpResponse](any,any))
+              .thenReturn(Future.successful(HttpResponse(500, "{}")))
 
           val res = await(getFinancialData)
 
@@ -137,8 +146,8 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
         }
 
         "return an exception" in {
-          when(httpClient.GET[Any](any, any, any)(any, any, any))
-            .thenReturn(Future.successful(HttpResponse(200, "{}")))
+          when(mockRequestBuilder.execute[HttpResponse](any,any))
+              .thenReturn(Future.successful(HttpResponse(200, "{}")))
 
           val res = await(getFinancialData)
 
@@ -170,7 +179,7 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
         s"$statusCode is returned from downstream service" in {
           val message = s"""{"code":"${statusCode}","reason":"fish fryer fire"}"""
 
-          when(httpClient.GET[Any](any, any, any)(any, any, any))
+          when(mockRequestBuilder.execute[HttpResponse](any,any))
             .thenReturn(Future.successful(HttpResponse(statusCode, message)))
 
           val res = await(getFinancialData)
@@ -188,7 +197,7 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
       "map special DES 404s to a zero financial records results" in {
         val DESnotFoundResponse = """{"code": "NOT_FOUND", "reason": "fish fryer fire"}"""
         when(edgeOfSystem.localDateTimeNow).thenReturn(LocalDateTime.of(2022, 2, 22, 13, 1, 2, 3))
-        when(httpClient.GET[Any](any, any, any)(any, any, any))
+        when(mockRequestBuilder.execute[HttpResponse](any,any))
           .thenReturn(Future.successful(HttpResponse(NOT_FOUND, DESnotFoundResponse)))
         val result = await(getFinancialData)
 
@@ -222,15 +231,15 @@ class FinancialDataConnectorISpec extends PlaySpec with EnterpriseTestData with 
     GetPaymentStatement(internalId, pptReference, "Failure", None, Some(message))
 
   private def captureAndVerifyAuditConnector(): Unit = {
-    val captor = ArgCaptor[GetPaymentStatement]
+    val captor = ArgumentCaptor.forClass(classOf[GetPaymentStatement])
 
-    verify(auditConnector).sendExplicitAudit[GetPaymentStatement](eqTo(GetPaymentStatement.eventType), captor)(
+    verify(auditConnector).sendExplicitAudit[GetPaymentStatement](eqTo(GetPaymentStatement.eventType), captor.capture())(
       any,
       any,
       any
     )
 
-    val audit = captor.value
+    val audit = captor.getValue
     audit.internalId mustBe internalId
     audit.pptReference mustBe pptReference
     audit.result mustBe "Failure"

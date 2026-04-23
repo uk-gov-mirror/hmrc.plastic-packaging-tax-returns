@@ -16,8 +16,10 @@
 
 package uk.gov.hmrc.plasticpackagingtaxreturns.services
 
-import org.mockito.ArgumentMatchersSugar._
-import org.mockito.MockitoSugar
+import org.mockito.ArgumentMatchers._
+import org.mockito.ArgumentMatchers.{eq => eqTo}
+import org.mockito.Mockito.{times, verify, when, never, reset, spy}
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.BeforeAndAfterEach
 import org.scalatestplus.play.PlaySpec
 import play.api.libs.json.JsPath
@@ -158,7 +160,7 @@ class CreditsCalculationServiceSpec extends PlaySpec with BeforeAndAfterEach wit
       }
       "use the correct weight for the new journey" in {
         sut.totalRequestedCredit_old(newUserAnswers)
-        verify(taxCalculationService).weightToCredit(any, eqTo(3))
+        verify(taxCalculationService).weightToCredit(any, eqTo(3L))
       }
       "return the correct total" in {
         sut.totalRequestedCredit_old(newUserAnswers) mustBe Some(TaxablePlastic(1, 1.1, 1.11))

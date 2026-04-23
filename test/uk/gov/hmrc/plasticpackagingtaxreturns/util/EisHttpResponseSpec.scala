@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.plasticpackagingtaxreturns.util
 
-import org.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.TryValues.convertTryToSuccessOrFailure
 import org.scalatestplus.play.PlaySpec
@@ -55,7 +55,7 @@ class EisHttpResponseSpec extends PlaySpec with BeforeAndAfterEach with MockitoS
     "handle json, but the wrong type" in {
       val triedExample = EisHttpResponse(200, """{"another":"thing"}""", correlationId = "")
         .jsonAs[Example]
-      triedExample.failure.exception must have message "Response body could not be read as type EisHttpResponseSpec.this.Example"
+      triedExample.failure.exception must have message "Response body could not be read as type uk.gov.hmrc.plasticpackagingtaxreturns.util.EisHttpResponseSpec.Example"
       triedExample.failure.exception mustBe a[RuntimeException]
       triedExample.failure.exception.getCause mustBe a[JsResultException]
     }
