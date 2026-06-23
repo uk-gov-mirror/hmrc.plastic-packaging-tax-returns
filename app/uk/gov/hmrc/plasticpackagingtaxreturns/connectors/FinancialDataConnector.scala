@@ -19,7 +19,6 @@ package uk.gov.hmrc.plasticpackagingtaxreturns.connectors
 import play.api.Logger
 import play.api.http.Status
 import play.api.http.Status.INTERNAL_SERVER_ERROR
-import play.api.libs.json.{JsDefined, JsString}
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.plasticpackagingtaxreturns.audit.returns.GetPaymentStatement
 import uk.gov.hmrc.plasticpackagingtaxreturns.config.AppConfig
@@ -65,18 +64,11 @@ class FinancialDataConnector @Inject() (
       "customerPaymentInformation" -> customerPaymentInformation
     )
 
-    def successFun(response: EisHttpResponse): Boolean =
-      response.status match {
-        case Status.OK                                                                      => true
-        case Status.NOT_FOUND if response.json \ "code" == JsDefined(JsString("NOT_FOUND")) => true
-        case _                                                                              => false
-      }
     eisHttpClient.get(
       appConfig.enterpriseFinancialDataUrl(pptReference),
       queryParams = queryParams,
       timerName,
-      buildDesHeader,
-      successFun
+      buildDesHeader
     )
       .map { (response: EisHttpResponse) =>
         response.status match {
